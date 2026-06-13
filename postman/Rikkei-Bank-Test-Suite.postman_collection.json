@@ -1,0 +1,2450 @@
+{
+  "info": {
+    "_postman_id": "29f9caf8-cac5-49d3-9572-6649121a1548",
+    "name": "Rikkei Bank - Complete Test Suite",
+    "description": "Complete test suite for all 35 REST endpoints. Run folders in numeric order. Multipart eKYC requests require selecting a local PNG/JPEG file. OTP and password-reset tokens are delivered through MailHog.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get('baseUrl')) pm.environment.set('baseUrl', 'http://localhost:8080');",
+          "pm.environment.set('idempotencySuffix', Date.now().toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response time below 5 seconds', () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Public Registration",
+      "item": [
+        {
+          "name": "Register customer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('autoGenerateIdentities') !== 'false') {",
+                  "  const suffix = Date.now().toString();",
+                  "  const prefix = pm.environment.get('customerIdentityPrefix') || 'postman_customer';",
+                  "  pm.environment.set('customerUsername', prefix + '_' + suffix);",
+                  "  pm.environment.set('customerEmail', prefix + '.' + suffix + '@example.com');",
+                  "  pm.environment.set('customerPhone', '09' + suffix.slice(-8));",
+                  "}",
+                  "pm.environment.unset('customerId');",
+                  "pm.environment.unset('customerToken');",
+                  "pm.environment.unset('customerRefreshToken');",
+                  "pm.environment.unset('accountId');",
+                  "pm.environment.unset('sourceAccountId');",
+                  "pm.environment.unset('sourceAccountBalance');",
+                  "pm.environment.unset('sourceAccountActive');",
+                  "pm.environment.set('transactionPin', '1234');",
+                  "pm.environment.set('newTransactionPin', '5678');",
+                  "pm.environment.unset('kycId');",
+                  "pm.environment.unset('transferId');",
+                  "pm.environment.unset('otpChallengeId');",
+                  "pm.environment.unset('otp');",
+                  "pm.environment.unset('resetToken');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('customerId', body.data.id);",
+                  "if (body.data.username != null) pm.environment.set('customerUsername', body.data.username);",
+                  "if (body.data.email != null) pm.environment.set('customerEmail', body.data.email);",
+                  "if (body.data.phone != null) pm.environment.set('customerPhone', body.data.phone);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{customerUsername}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"email\": \"{{customerEmail}}\",\n  \"fullName\": \"Postman Customer\",\n  \"phone\": \"{{customerPhone}}\",\n  \"role\": \"CUSTOMER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/public/registrations"
+          }
+        },
+        {
+          "name": "Register customer with eKYC",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('autoGenerateIdentities') !== 'false') {",
+                  "  const suffix = Date.now().toString();",
+                  "  const prefix = pm.environment.get('kycIdentityPrefix') || 'postman_kyc_customer';",
+                  "  pm.environment.set('kycUsername', prefix + '_' + suffix);",
+                  "  pm.environment.set('kycEmail', prefix + '.' + suffix + '@example.com');",
+                  "  pm.environment.set('kycPhone', '09' + suffix.slice(-8));",
+                  "}",
+                  "pm.environment.unset('kycId');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('kycId', body.data.id);",
+                  "if (body.data.userId != null) pm.environment.set('kycCustomerId', body.data.userId);",
+                  "if (body.data.username != null) pm.environment.set('kycUsername', body.data.username);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user",
+                  "value": "{\"username\":\"{{kycUsername}}\",\"password\":\"{{customerPassword}}\",\"email\":\"{{kycEmail}}\",\"fullName\":\"Postman KYC Customer\",\"phone\":\"{{kycPhone}}\",\"role\":\"CUSTOMER\"}",
+                  "type": "text",
+                  "contentType": "application/json"
+                },
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/public/registrations/with-kyc?idNumber={{idNumber}}",
+            "description": "Select a non-empty PNG/JPEG file for document before sending."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Authentication",
+      "item": [
+        {
+          "name": "Admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.accessToken != null) pm.environment.set('adminToken', body.data.accessToken);",
+                  "if (body.data.refreshToken != null) pm.environment.set('adminRefreshToken', body.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Staff login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.accessToken != null) pm.environment.set('staffToken', body.data.accessToken);",
+                  "if (body.data.refreshToken != null) pm.environment.set('staffRefreshToken', body.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{staffUsername}}\",\n  \"password\": \"{{staffPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Customer login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.accessToken != null) pm.environment.set('customerToken', body.data.accessToken);",
+                  "if (body.data.refreshToken != null) pm.environment.set('customerRefreshToken', body.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{customerUsername}}\",\n  \"password\": \"{{customerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Rotate customer refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.accessToken != null) pm.environment.set('customerToken', body.data.accessToken);",
+                  "if (body.data.refreshToken != null) pm.environment.set('customerRefreshToken', body.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/refresh"
+          }
+        },
+        {
+          "name": "Forgot password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('resetToken');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password",
+            "description": "Requests a one-time reset token and sends it to customerEmail through MailHog."
+          }
+        },
+        {
+          "name": "Fetch password reset token from MailHog",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = ['mailHogUrl', 'customerEmail'];",
+                  "const missingVariables = requiredVariables.filter(key => !pm.environment.get(key));",
+                  "if (missingVariables.length) throw new Error('Missing required environment variables: ' + missingVariables.join(', '));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const messages = pm.response.json().items || [];",
+                  "const email = pm.environment.get('customerEmail');",
+                  "const message = messages.find(item => {",
+                  "  const content = item.Content || {};",
+                  "  const headers = content.Headers || {};",
+                  "  const recipients = JSON.stringify(headers.To || []);",
+                  "  const subject = JSON.stringify(headers.Subject || []);",
+                  "  return recipients.includes(email) && subject.includes('Rikkei Bank password reset') && /Reset token:\\s*[0-9a-fA-F-]{36}/.test(content.Body || '');",
+                  "});",
+                  "const match = message?.Content?.Body?.match(/Reset token:\\s*([0-9a-fA-F-]{36})/);",
+                  "pm.test('Latest customer email contains reset token', () => pm.expect(match, 'No password reset email found for ' + email).to.not.eql(null));",
+                  "if (match) pm.environment.set('resetToken', match[1]);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{mailHogUrl}}/api/v2/messages?limit=50",
+            "description": "Reads the newest password reset email for customerEmail and saves its token into resetToken."
+          }
+        },
+        {
+          "name": "Reset password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = ['resetToken', 'resetPassword'];",
+                  "const missingVariables = requiredVariables.filter(key => !pm.environment.get(key));",
+                  "if (missingVariables.length) throw new Error('Missing required environment variables: ' + missingVariables.join(', '));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.environment.set('customerPassword', pm.environment.get('resetPassword'));",
+                  "  pm.environment.unset('resetToken');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"{{resetPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/reset-password",
+            "description": "Requires resetToken from the preceding MailHog request. On success, updates customerPassword for later login requests."
+          }
+        },
+        {
+          "name": "Logout customer and revoke refresh family",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{customerRefreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Admin User Management",
+      "item": [
+        {
+          "name": "List and search users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users?search={{userSearch}}&page=0&size=20&sort=id,asc"
+          }
+        },
+        {
+          "name": "Get user by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{customerId}}"
+          }
+        },
+        {
+          "name": "Get user by username",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users/by-username/{{customerUsername}}"
+          }
+        },
+        {
+          "name": "Get user by email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users/by-email?email={{customerEmail}}"
+          }
+        },
+        {
+          "name": "Create user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('autoGenerateIdentities') !== 'false') {",
+                  "  const suffix = Date.now().toString();",
+                  "  const prefix = pm.environment.get('adminCreatedIdentityPrefix') || 'postman_admin_created';",
+                  "  pm.environment.set('adminCreatedUsername', prefix + '_' + suffix);",
+                  "  pm.environment.set('adminCreatedEmail', prefix + '.' + suffix + '@example.com');",
+                  "  pm.environment.set('adminCreatedPhone', '09' + suffix.slice(-8));",
+                  "}",
+                  "pm.environment.unset('adminCreatedUserId');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('adminCreatedUserId', body.data.id);",
+                  "if (body.data.username != null) pm.environment.set('adminCreatedUsername', body.data.username);",
+                  "if (body.data.email != null) pm.environment.set('adminCreatedEmail', body.data.email);",
+                  "if (body.data.phone != null) pm.environment.set('adminCreatedPhone', body.data.phone);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminCreatedUsername}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"email\": \"{{adminCreatedEmail}}\",\n  \"fullName\": \"Admin Created Customer\",\n  \"phone\": \"{{adminCreatedPhone}}\",\n  \"role\": \"CUSTOMER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users"
+          }
+        },
+        {
+          "name": "Update user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"fullName\": \"Postman Customer Updated\",\n  \"phone\": \"{{customerPhone}}\",\n  \"role\": \"CUSTOMER\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/users/{{customerId}}"
+          }
+        },
+        {
+          "name": "Disable user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{adminCreatedUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Admin Account Management",
+      "item": [
+        {
+          "name": "List accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/accounts?page=0&size=20&sort=id,asc"
+          }
+        },
+        {
+          "name": "Create account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('accountId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerId\": \"{{customerId}}\",\n  \"currency\": \"VND\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/accounts"
+          }
+        },
+        {
+          "name": "Get account detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{accountId}}"
+          }
+        },
+        {
+          "name": "Update account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"VND\",\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{accountId}}"
+          }
+        },
+        {
+          "name": "Change account status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{accountId}}/status"
+          }
+        },
+        {
+          "name": "Deposit to account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"adminToken\",\"accountId\",\"depositAmount\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('depositTransactionId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"{{depositAmount}}\",\n  \"description\": \"Postman admin cash deposit\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{accountId}}/deposit"
+          }
+        },
+        {
+          "name": "Close zero-balance account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{accountId}}",
+            "description": "Only succeeds while the account balance is zero. Run before transfers."
+          }
+        },
+        {
+          "name": "List audit logs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/audit-logs?page=0&size=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Staff Operations",
+      "item": [
+        {
+          "name": "List users as staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/staff/users?search={{userSearch}}&page=0&size=20"
+          }
+        },
+        {
+          "name": "Get user by ID as staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/staff/users/{{customerId}}"
+          }
+        },
+        {
+          "name": "Get user by username as staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/staff/users/by-username/{{customerUsername}}"
+          }
+        },
+        {
+          "name": "Get user by email as staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/staff/users/by-email?email={{customerEmail}}"
+          }
+        },
+        {
+          "name": "Update user as staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"fullName\": \"Staff Reviewed Customer\",\n  \"phone\": \"{{customerPhone}}\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/staff/users/{{customerId}}"
+          }
+        },
+        {
+          "name": "List pending eKYC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.data?.content?.[0]?.id) pm.environment.set('kycId', body.data.content[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/staff/kyc/pending?page=0&size=20"
+          }
+        },
+        {
+          "name": "Approve eKYC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\",\n  \"reason\": \"Verified by Postman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/staff/kyc/{{kycId}}/decision"
+          }
+        },
+        {
+          "name": "Approve pending transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"reason\": \"Approved by Postman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/staff/transfers/{{transferId}}/approval",
+            "description": "Requires transferId from a transfer that entered PENDING_APPROVAL."
+          }
+        },
+        {
+          "name": "Deposit to account as staff",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"staffToken\",\"accountId\",\"depositAmount\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('depositTransactionId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"{{depositAmount}}\",\n  \"description\": \"Postman staff cash deposit\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/staff/accounts/{{accountId}}/deposit"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Customer Banking",
+      "item": [
+        {
+          "name": "Customer login again after logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.accessToken != null) pm.environment.set('customerToken', body.data.accessToken);",
+                  "if (body.data.refreshToken != null) pm.environment.set('customerRefreshToken', body.data.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{customerUsername}}\",\n  \"password\": \"{{customerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "List my accounts",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"customerToken\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const account = body.data?.[0];",
+                  "pm.test('Customer has a source account', () => pm.expect(account, 'No account belongs to current customer').to.exist);",
+                  "if (account) {",
+                  "  pm.environment.set('accountId', account.id);",
+                  "  pm.environment.set('sourceAccountId', account.id);",
+                  "  pm.environment.set('sourceAccountBalance', account.balance);",
+                  "  pm.environment.set('sourceAccountActive', String(account.active));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/accounts"
+          }
+        },
+        {
+          "name": "Set initial transaction PIN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"customerToken\",\"transactionPin\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pin\": \"{{transactionPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/customer/pin",
+            "description": "Customer chooses a transaction PIN after first login. The server stores only its BCrypt hash."
+          }
+        },
+        {
+          "name": "Upload eKYC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('kycId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/customer/kyc?idNumber={{idNumber}}",
+            "description": "Select a non-empty PNG/JPEG file for document before sending."
+          }
+        },
+        {
+          "name": "Approve current customer eKYC for test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"staffToken\",\"kycId\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staffToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\",\n  \"reason\": \"Approved for customer banking test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/staff/kyc/{{kycId}}/decision",
+            "description": "Test-only workflow step using a staff token. Activates the current customer's accounts."
+          }
+        },
+        {
+          "name": "Fund source account for transfer test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"adminToken\",\"sourceAccountId\",\"depositAmount\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('depositTransactionId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": \"{{depositAmount}}\",\n  \"description\": \"Postman transfer test funding\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/admin/accounts/{{sourceAccountId}}/deposit"
+          }
+        },
+        {
+          "name": "Validate transfer prerequisites",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"customerToken\",\"sourceAccountId\",\"transferAmount\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const account = pm.response.json().data;",
+                  "const amount = Number(pm.environment.get('transferAmount'));",
+                  "pm.environment.set('sourceAccountBalance', account.balance);",
+                  "pm.environment.set('sourceAccountActive', String(account.active));",
+                  "pm.test('Source account is active after eKYC approval', () => pm.expect(account.active, 'Approve customer eKYC first').to.eql(true));",
+                  "pm.test('Source account has sufficient balance', () => pm.expect(Number(account.balance), 'Fund source account before transfer').to.be.at.least(amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/accounts/{{sourceAccountId}}/balance"
+          }
+        },
+        {
+          "name": "Balance inquiry",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/accounts/{{accountId}}/balance"
+          }
+        },
+        {
+          "name": "Request OTP for internal transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data?.challengeId) pm.environment.set('otpChallengeId', body.data.challengeId);",
+                  "pm.environment.unset('otp');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/transfers/otp",
+            "description": "Creates an OTP challenge and saves otpChallengeId."
+          }
+        },
+        {
+          "name": "Fetch internal transfer OTP from MailHog",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"mailHogUrl\",\"customerEmail\",\"otpChallengeId\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const messages = pm.response.json().items || [];",
+                  "const email = pm.environment.get('customerEmail');",
+                  "const message = messages.find(item => {",
+                  "  const content = item.Content || {};",
+                  "  const headers = content.Headers || {};",
+                  "  const recipients = JSON.stringify(headers.To || []);",
+                  "  return recipients.includes(email) && /Your transfer OTP is \\d{6}/.test(content.Body || '');",
+                  "});",
+                  "const match = message?.Content?.Body?.match(/Your transfer OTP is (\\d{6})/);",
+                  "pm.test('Latest customer email contains OTP', () => pm.expect(match, 'No OTP email found for ' + email).to.not.eql(null));",
+                  "if (match) pm.environment.set('otp', match[1]);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{mailHogUrl}}/api/v2/messages?limit=50",
+            "description": "Reads the latest OTP email for customerEmail and saves the six-digit value into otp."
+          }
+        },
+        {
+          "name": "Internal transfer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"customerToken\",\"sourceAccountId\",\"targetAccountId\",\"transferAmount\",\"transactionPin\",\"otpChallengeId\",\"otp\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('transferId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": \"{{sourceAccountId}}\",\n  \"targetAccountId\": \"{{targetAccountId}}\",\n  \"amount\": \"{{transferAmount}}\",\n  \"type\": \"INTERNAL\",\n  \"description\": \"Postman internal transfer\",\n  \"pin\": \"{{transactionPin}}\",\n  \"otpChallengeId\": \"{{otpChallengeId}}\",\n  \"otp\": \"{{otp}}\",\n  \"idempotencyKey\": \"internal-{{idempotencySuffix}}\",\n  \"externalBankCode\": null,\n  \"externalAccountNumber\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/customer/transfers"
+          }
+        },
+        {
+          "name": "Request OTP for interbank transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data?.challengeId) pm.environment.set('otpChallengeId', body.data.challengeId);",
+                  "pm.environment.unset('otp');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/transfers/otp",
+            "description": "A new OTP challenge is required because OTP values are single-use."
+          }
+        },
+        {
+          "name": "Fetch interbank transfer OTP from MailHog",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"mailHogUrl\",\"customerEmail\",\"otpChallengeId\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const messages = pm.response.json().items || [];",
+                  "const email = pm.environment.get('customerEmail');",
+                  "const message = messages.find(item => {",
+                  "  const content = item.Content || {};",
+                  "  const headers = content.Headers || {};",
+                  "  const recipients = JSON.stringify(headers.To || []);",
+                  "  return recipients.includes(email) && /Your transfer OTP is \\d{6}/.test(content.Body || '');",
+                  "});",
+                  "const match = message?.Content?.Body?.match(/Your transfer OTP is (\\d{6})/);",
+                  "pm.test('Latest customer email contains OTP', () => pm.expect(match, 'No OTP email found for ' + email).to.not.eql(null));",
+                  "if (match) pm.environment.set('otp', match[1]);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{mailHogUrl}}/api/v2/messages?limit=50",
+            "description": "Reads the latest OTP email for customerEmail and saves the six-digit value into otp."
+          }
+        },
+        {
+          "name": "Interbank transfer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const requiredVariables = [\"customerToken\",\"sourceAccountId\",\"transferAmount\",\"transactionPin\",\"otpChallengeId\",\"otp\"];",
+                  "const missingVariables = requiredVariables.filter(key => {",
+                  "  const value = pm.environment.get(key);",
+                  "  return value === undefined || value === null || String(value).trim() === '';",
+                  "});",
+                  "if (missingVariables.length) {",
+                  "  throw new Error('Missing required environment variables: ' + missingVariables.join(', '));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.success).to.eql(true);",
+                  "if (body.data.id != null) pm.environment.set('transferId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": \"{{sourceAccountId}}\",\n  \"targetAccountId\": null,\n  \"amount\": \"{{transferAmount}}\",\n  \"type\": \"INTERBANK\",\n  \"description\": \"Postman interbank transfer\",\n  \"pin\": \"{{transactionPin}}\",\n  \"otpChallengeId\": \"{{otpChallengeId}}\",\n  \"otp\": \"{{otp}}\",\n  \"idempotencyKey\": \"interbank-{{idempotencySuffix}}\",\n  \"externalBankCode\": \"VCB\",\n  \"externalAccountNumber\": \"0123456789\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/customer/transfers"
+          }
+        },
+        {
+          "name": "Account statement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/customer/accounts/{{accountId}}/statement?page=0&size=20&sort=createdAt,desc"
+          }
+        },
+        {
+          "name": "Change PIN",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const currentPin = pm.environment.get('transactionPin');",
+                  "const newPin = pm.environment.get('newTransactionPin');",
+                  "if (!currentPin || !newPin) throw new Error('transactionPin and newTransactionPin are required');",
+                  "if (String(currentPin) === String(newPin)) throw new Error('newTransactionPin must differ from transactionPin');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const previousPin = pm.environment.get('transactionPin');",
+                  "  pm.environment.set('transactionPin', pm.environment.get('newTransactionPin'));",
+                  "  pm.environment.set('newTransactionPin', previousPin);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPin\": \"{{transactionPin}}\",\n  \"newPin\": \"{{newTransactionPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/customer/pin",
+            "description": "Changes the current PIN and swaps transactionPin/newTransactionPin after a successful response so repeated tests remain valid."
+          }
+        }
+      ]
+    }
+  ]
+}
